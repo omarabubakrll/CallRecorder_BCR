@@ -138,16 +138,13 @@ class SettingsFragment : PreferenceBaseFragment(), Preference.OnPreferenceChange
 
     override fun onStart() {
         super.onStart()
-
         preferenceScreen.sharedPreferences!!.registerOnSharedPreferenceChangeListener(this)
-
         // Changing the battery state does not cause a reload of the activity
         refreshInhibitBatteryOptState()
     }
 
     override fun onStop() {
         super.onStop()
-
         preferenceScreen.sharedPreferences!!.unregisterOnSharedPreferenceChangeListener(this)
     }
 

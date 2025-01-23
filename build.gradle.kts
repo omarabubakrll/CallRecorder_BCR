@@ -9,4 +9,5 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.parcelize) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    id("com.google.gms.google-services") version "4.4.2" apply false // 👈
 }

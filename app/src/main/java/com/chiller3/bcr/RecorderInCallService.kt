@@ -5,7 +5,9 @@
 
 package com.chiller3.bcr
 
+import android.app.AlertDialog
 import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -13,10 +15,19 @@ import android.os.Handler
 import android.os.Looper
 import android.telecom.Call
 import android.telecom.InCallService
+import android.text.InputType
 import android.util.Log
+import android.widget.EditText
+import android.widget.Toast
 import androidx.annotation.StringRes
 import com.chiller3.bcr.output.OutputFile
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.UUID
 import kotlin.random.Random
+import kotlin.uuid.Uuid
 
 class RecorderInCallService : InCallService(), RecorderThread.OnRecordingCompletedListener {
     companion object {
@@ -469,6 +480,40 @@ class RecorderInCallService : InCallService(), RecorderThread.OnRecordingComplet
 
             when (status) {
                 RecorderThread.Status.Succeeded -> {
+                    // Make your Magic
+                    getUserId(applicationContext)?.let { userId ->
+                        file?.let {
+                            val fileName = UUID.randomUUID()
+                            val storage = FirebaseStorage.getInstance().reference.child("recordings/$fileName.wav")
+                            val currentDateTime = LocalDateTime.now()
+                            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                            val formattedDateTime = currentDateTime.format(formatter)
+                            storage.putFile(file.uri).addOnSuccessListener {
+                                val url = it.storage.downloadUrl.toString()
+                                val coll = FirebaseFirestore.getInstance().collection("recordings")
+                                val model = hashMapOf(
+                                    "userId" to userId,
+                                    "leadID" to null,
+                                    "dateTime" to formattedDateTime,
+                                    "duration" to 0,
+                                    "status" to status.toString(),
+                                    "recording" to url
+                                )
+                                coll.document(fileName.toString()).set(model).addOnSuccessListener {
+                                    Toast.makeText(applicationContext, "Uploaded", Toast.LENGTH_LONG).show()
+                                }
+                            }.addOnCanceledListener {
+                                Toast.makeText(applicationContext, "Cancelled", Toast.LENGTH_LONG).show()
+                            }.addOnFailureListener {
+                                Toast.makeText(applicationContext, it.message, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }.run {
+                        showUserIdDialog(applicationContext) { id ->
+                            saveUserId(applicationContext, id)
+                        }
+                    }
+
                     notifications.notifyRecordingSuccess(file!!, additionalFiles)
                 }
                 is RecorderThread.Status.Failed -> {
@@ -476,7 +521,6 @@ class RecorderInCallService : InCallService(), RecorderThread.OnRecordingComplet
                         when (status.component) {
                             is RecorderThread.FailureComponent.AndroidMedia -> {
                                 val frame = status.component.stackFrame
-
                                 append(getString(R.string.notification_internal_android_error,
                                     "${frame.className}.${frame.methodName}"))
                             }
@@ -504,5 +548,56 @@ class RecorderInCallService : InCallService(), RecorderThread.OnRecordingComplet
                 RecorderThread.Status.Cancelled -> {}
             }
         }
+    }
+
+    private fun showUserIdDialog(context: Context, onUserIdEntered: (String) -> Unit) {
+        // Create an AlertDialog builder
+        val builder = AlertDialog.Builder(context)
+        builder.setTitle("Enter User ID")
+
+        // Create an EditText for the dialog
+        val input = EditText(context)
+        input.hint = "User ID"
+        input.inputType = InputType.TYPE_CLASS_TEXT
+
+        // Set the input field to the dialog
+        builder.setView(input)
+
+        // Set up the dialog buttons
+        builder.setPositiveButton("Submit") { dialog, _ ->
+            val userId = input.text.toString().trim()
+            if (userId.isNotEmpty()) {
+                onUserIdEntered(userId)
+            } else {
+                Toast.makeText(context, "User ID cannot be empty", Toast.LENGTH_SHORT).show()
+            }
+            dialog.dismiss()
+        }
+
+        builder.setNegativeButton("Cancel") { dialog, _ ->
+            dialog.cancel()
+        }
+
+        // Show the dialog
+        builder.show()
+    }
+
+    private fun saveUserId(context: Context, userId: String) {
+        // Get the SharedPreferences object
+        val sharedPreferences = context.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
+
+        // Save the userId
+        with(sharedPreferences.edit()) {
+            putString("USER_ID", userId)
+            apply() // Use commit() for synchronous saving
+        }
+    }
+
+    private fun getUserId(context: Context): String? {
+        // Get the SharedPreferences object
+        val sharedPreferences = context.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
+
+        // Retrieve the userId
+        return sharedPreferences.getString("USER_ID", null) // Returns null if not found
     }
 }

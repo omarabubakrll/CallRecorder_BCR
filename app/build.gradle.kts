@@ -15,6 +15,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.google.gms.google.services)
 }
 
 java {
@@ -227,6 +228,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kudzu)
     implementation(libs.material)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.storage)
     testImplementation(libs.junit)
 }
 
