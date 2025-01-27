@@ -259,7 +259,6 @@ class RecorderInCallService : InCallService(), RecorderThread.OnRecordingComplet
                 Log.w(TAG, "Ignoring call associated with package: $callPackage")
                 return
             }
-
             val recorder = try {
                 RecorderThread(this, this, call)
             } catch (e: Exception) {
